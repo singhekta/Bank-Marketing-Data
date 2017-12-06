@@ -1,0 +1,336 @@
+# Bank-Marketing-Data
+library(nnet)
+library(e1071)
+library(caret)
+library(mltools)
+library(readr)
+library(plyr)
+library(reshape2)
+library(ggplot2)
+library(pander)
+library(reshape2)
+library(h2o)
+library(lattice)
+library(dplyr)
+library(mlbench)
+library(foreign)
+library(scales)
+library(MASS)
+library(klaR)
+library(C50)
+library(kernlab)
+library(gmodels)
+
+
+bank <- read.csv("bank-full.csv", header=TRUE, sep = ";")
+sapply(bank, class)
+
+barplot(table(bank$job),col="red",ylab="No. of Clients",las=2,main="Job",cex.names = 0.8,cex.axis = 0.8)
+boxplot(bank$age~bank$y, main=" Age",ylab="Age of Clients",xlab="Deposit A/C Open or Not")
+
+bank <- bank[sample(1:nrow(bank)), ]
+sapply(bank, class)
+str(bank)
+pander(summary(bank))
+sapply(bank, function(x) sum(is.na(x)))
+sapply(bank, function(x) sum(x<0, na.rm=TRUE))
+
+#Data Exploration. Checking Each Variable
+#Age
+pander(summary(bank$age))
+ggplot(bank, aes(x = age)) + geom_histogram(binwidth = 5, fill=I("light blue"), col=I("dark red"))+ theme_bw()
+nrow(bank[bank$age < 18, ])
+nrow(bank[bank$age > 90, ])
+bank <- bank %>% filter(age >= 18)
+bank <- bank %>% filter(age < 90)
+dim(bank)
+ggplot(bank) + geom_histogram(aes(x = age), binwidth = 0.1, col = "white") +
+  facet_grid(y~., scales = "free") + scale_x_log10()
+
+#Job
+ggplot(bank, aes(x = job)) + geom_bar(fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+nrow(bank[bank$job =="unknown", ])
+bank <- bank %>% filter(job != "unknown") 
+ggplot(bank) + geom_bar(aes(x = job), col = "white") +
+  facet_grid(y~., scales = "free")  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+#Marital
+ggplot(bank, aes(x = marital)) + geom_bar(fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+nrow(bank[bank$marital =="unknown", ]) 
+bank <- bank %>% filter(marital != "unknown")
+ggplot(bank) + geom_bar(aes(x = marital), col = "white") +
+  facet_grid(y~., scales = "free")  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+#Education
+ggplot(bank, aes(x = education)) + geom_bar(fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+nrow(bank[bank$education =="unknown", ])
+nrow(bank[bank$education =="illiterate", ])
+ggplot(bank) + geom_bar(aes(x = education), col = "white") +
+  facet_grid(y~., scales = "free")  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+bank <- bank %>% filter(education != "illiterate")
+
+#Default
+nrow(bank[bank$default =="unknown", ])
+ggplot(bank, aes(x = default)) + geom_bar(fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggplot(bank) + geom_bar(aes(x = default), col = "white") +
+  facet_grid(y~., scales = "free")  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+nrow(bank[bank$default =="yes", ])
+bank <- bank %>% filter(default != "yes") 
+
+#Balance
+
+#Housing
+ggplot(bank, aes(x = housing)) + geom_bar(fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggplot(bank) + geom_bar(aes(x = housing), col = "white") +
+  facet_grid(y~., scales = "free")  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+bank <- bank %>% filter(housing != "unknown") 
+
+#Loan
+ggplot(bank, aes(x = loan)) + geom_bar(fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggplot(bank) + geom_bar(aes(x = loan), col = "white") +
+  facet_grid(y~., scales = "free")  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+bank <- bank %>% filter(loan != "unknown") 
+
+#Contact
+ggplot(bank, aes(x = contact)) + geom_bar(fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggplot(bank) + geom_bar(aes(x = contact), col = "white") +
+  facet_grid(y~., scales = "free")  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+#Day
+
+#Month
+ggplot(bank, aes(x = month)) + geom_bar(fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggplot(bank) + geom_bar(aes(x = month), col = "white") +
+  facet_grid(y~., scales = "free")  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+#Duration
+ggplot(bank, aes(x = duration)) + geom_bar(fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ln_duration <- log(bank$duration)
+ggplot(bank, aes(x = ln_duration)) + geom_histogram(binwidth = 0.1) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggplot(bank) + geom_histogram(aes(x = ln_duration), binwidth = 0.1) +
+  facet_grid(y~., scales = "free")  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+#Campaign
+ggplot(bank, aes(x = campaign)) + geom_histogram(binwidth = 1, fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+nrow(bank[bank$campaign > 10, ])
+bank <- bank %>% filter(campaign < 10)
+
+#Pdays
+ggplot(bank, aes(x = pdays)) + geom_histogram(binwidth = 50, fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+#Previous
+ggplot(bank, aes(x = previous)) + geom_histogram(binwidth = 1, fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggplot(bank) + geom_histogram(aes(x = previous), binwidth = 1) +
+  facet_grid(y~., scales = "free")  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+#Poutcome
+ggplot(bank, aes(x = poutcome)) + geom_bar(fill=I("light blue"), col=I("dark red")) + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ggplot(bank) + geom_bar(aes(x = poutcome), col = "white") +
+  facet_grid(y~., scales = "free")  + theme_bw() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+dim(bank)
+
+#Feature Engineering
+#New Age Groups
+bank$age_1 <- as.numeric(bank$age < 30)
+bank$age_2 <- as.numeric(bank$age >= 30 & bank$age <= 60)
+bank$age_3 <- as.numeric(bank$age > 60)
+
+
+#Marital status
+bank$marital_1 <- as.numeric(bank$marital == "single")
+bank$marital_2 <- as.numeric(bank$marital == "married")
+bank$marital_3 <- as.numeric(bank$marital == "divorced")
+
+#For Default
+bank$default_1 <- as.numeric(bank$default == "no")
+bank$default_2 <- as.numeric(bank$default == "unknown")
+
+#For Housing
+bank$housing_1 <- as.numeric(bank$housing == "no")
+bank$housing_2 <- as.numeric(bank$housing == "yes")
+
+#For Loan
+bank$loan_1 <- as.numeric(bank$loan == "no")
+bank$loan_2 <- as.numeric(bank$loan == "yes")
+
+#For Contact
+bank$con_1 <- as.numeric(bank$contact == "cellular")
+bank$con_2 <- as.numeric(bank$contact == "telephone")
+
+
+#For Poutcome
+bank$poutcome1  <- as.numeric(bank$poutcome == "failure")
+bank$poutcome2  <- as.numeric(bank$poutcome == "nonexistent")
+bank$poutcome3  <- as.numeric(bank$poutcome == "success")
+dim(bank)
+
+#Dropping some attributes
+# Drop originals od dummified categorical features 
+bank$marital <- NULL
+bank$education <- NULL
+bank$default <- NULL
+bank$housing <- NULL
+bank$loan <- NULL
+bank$contact <- NULL
+bank$poutcome <- NULL
+
+colnames(bank)
+dim(bank)
+
+
+
+#Create 5 equally size folds
+folds <- cut(seq(1,nrow(bank)),breaks=5,labels=FALSE)
+
+#Perform 5 fold cross validation
+#Segement your data by fold using the which() function
+
+#First Fold
+testIndexes1 <- which(folds==1,arr.ind=TRUE)
+testData1 <- bank[testIndexes1, ]
+trainData1 <- bank[-testIndexes1, ]
+
+#Neural Network
+model_neural1 <- train(y ~ .,trainData1, method = "nnet",
+                                       trControl= trainControl(method = "cv", number = 5))
+model_neural1
+bank_pred_dt1 <- predict(model_neural1, testData1)
+agreement_dt1 <- bank_pred_dt1 == testData1$y
+prop.table(table(agreement_dt1))
+confusionMatrix(bank_pred_dt1, testData1$y)
+
+#Evaluating MCC
+confusion.matrix <- prop.table(table(bank_pred_dt1, testData1$y))
+MCC1 = -1
+for(i in 1:2){
+  for(j in 1:2){
+    if (confusion.matrix[i,j]==0){
+      MCC1 = 0
+    }}}
+if(MCC1 == -1){
+  MCC1=(confusion.matrix[1,1]*confusion.matrix[2,2]-confusion.matrix[1,2]*confusion.matrix[2,1])/(((confusion.matrix[1,1]+confusion.matrix[1,2])*(confusion.matrix[1,1]+confusion.matrix[2,1])*(confusion.matrix[2,2]+confusion.matrix[1,2])*(confusion.matrix[2,2]+confusion.matrix[2,1]))^(1/2))
+}
+MCC1
+#End of first fold
+
+#Second Fold
+testIndexes2 <- which(folds==2,arr.ind=TRUE)
+testData2 <- bank[testIndexes2, ]
+trainData2 <- bank[-testIndexes2, ]
+
+#Neural Network
+model_neural2 <- train(y ~ .,trainData2, method = "nnet",
+                            trControl= trainControl(method = "cv", number = 5))
+model_neural2
+bank_pred_dt2 <- predict(model_neural2, testData2)
+agreement_dt2 <- bank_pred_dt2 == testData2$y
+prop.table(table(agreement_dt2))
+confusionMatrix(bank_pred_dt2, testData2$y)
+
+#Evaluating MCC
+confusion.matrix <- prop.table(table(bank_pred_dt2, testData2$y))
+MCC2 = -1
+for(i in 1:2){
+  for(j in 1:2){
+    if (confusion.matrix[i,j]==0){
+      MCC2 = 0
+    }}}
+if(MCC2 == -1){
+  MCC2=(confusion.matrix[1,1]*confusion.matrix[2,2]-confusion.matrix[1,2]*confusion.matrix[2,1])/(((confusion.matrix[1,1]+confusion.matrix[1,2])*(confusion.matrix[1,1]+confusion.matrix[2,1])*(confusion.matrix[2,2]+confusion.matrix[1,2])*(confusion.matrix[2,2]+confusion.matrix[2,1]))^(1/2))
+}
+MCC2
+
+#End of second fold
+
+#Third Fold
+testIndexes3 <- which(folds==3,arr.ind=TRUE)
+testData3 <- bank[testIndexes3, ]
+trainData3 <- bank[-testIndexes3, ]
+
+#Neural Network
+model_neural3 <- train(y ~ .,trainData3, method = "nnet",
+                            trControl= trainControl(method = "cv", number = 5))
+model_neural3
+bank_pred_dt3 <- predict(model_neural3, testData3)
+agreement_dt3 <- bank_pred_dt3 == testData3$y
+prop.table(table(agreement_dt3))
+confusionMatrix(bank_pred_dt3, testData3$y)
+
+#Evaluating MCC
+confusion.matrix <- prop.table(table(bank_pred_dt3, testData3$y))
+MCC3 = -1
+for(i in 1:2){
+  for(j in 1:2){
+    if (confusion.matrix[i,j]==0){
+      MCC3 = 0
+    }}}
+if(MCC3 == -1){
+  MCC3=(confusion.matrix[1,1]*confusion.matrix[2,2]-confusion.matrix[1,2]*confusion.matrix[2,1])/(((confusion.matrix[1,1]+confusion.matrix[1,2])*(confusion.matrix[1,1]+confusion.matrix[2,1])*(confusion.matrix[2,2]+confusion.matrix[1,2])*(confusion.matrix[2,2]+confusion.matrix[2,1]))^(1/2))
+}
+MCC3
+
+#End of third fold
+
+#Fourth Fold
+testIndexes4 <- which(folds==4,arr.ind=TRUE)
+testData4 <- bank[testIndexes4, ]
+trainData4 <- bank[-testIndexes4, ]
+
+#Neural Network
+model_neural4 <- train(y ~ .,trainData4, method = "nnet",
+                            trControl= trainControl(method = "cv", number = 5))
+model_neural4
+bank_pred_dt4 <- predict(model_neural4, testData4)
+agreement_dt4 <- bank_pred_dt4 == testData4$y
+prop.table(table(agreement_dt4))
+confusionMatrix(bank_pred_dt4, testData4$y)
+
+#Evaluating MCC
+confusion.matrix <- prop.table(table(bank_pred_dt4, testData4$y))
+MCC4 = -1
+for(i in 1:2){
+  for(j in 1:2){
+    if (confusion.matrix[i,j]==0){
+      MCC4 = 0
+    }}}
+if(MCC4 == -1){
+  MCC4=(confusion.matrix[1,1]*confusion.matrix[2,2]-confusion.matrix[1,2]*confusion.matrix[2,1])/(((confusion.matrix[1,1]+confusion.matrix[1,2])*(confusion.matrix[1,1]+confusion.matrix[2,1])*(confusion.matrix[2,2]+confusion.matrix[1,2])*(confusion.matrix[2,2]+confusion.matrix[2,1]))^(1/2))
+}
+MCC4
+
+#End of fourth fold 
+
+#Fifth Fold
+testIndexes5 <- which(folds==5,arr.ind=TRUE)
+testData5 <- bank[testIndexes5, ]
+trainData5 <- bank[-testIndexes5, ]
+
+#Neural Network
+model_neural5 <- train(y ~ .,trainData5, method = "nnet",
+                            trControl= trainControl(method = "cv", number = 5))
+model_neural5
+bank_pred_dt5 <- predict(model_neural5, testData5)
+agreement_dt5 <- bank_pred_dt5 == testData5$y
+prop.table(table(agreement_dt5))
+confusionMatrix(bank_pred_dt5, testData5$y)
+
+#Evaluating MCC
+confusion.matrix <- prop.table(table(bank_pred_dt5, testData5$y))
+MCC5 = -1
+for(i in 1:2){
+  for(j in 1:2){
+    if (confusion.matrix[i,j]==0){
+      MCC5 = 0
+    }}}
+if(MCC5 == -1){
+  MCC5=(confusion.matrix[1,1]*confusion.matrix[2,2]-confusion.matrix[1,2]*confusion.matrix[2,1])/(((confusion.matrix[1,1]+confusion.matrix[1,2])*(confusion.matrix[1,1]+confusion.matrix[2,1])*(confusion.matrix[2,2]+confusion.matrix[1,2])*(confusion.matrix[2,2]+confusion.matrix[2,1]))^(1/2))
+}
+MCC5
+
+#End of fifth fold
+
+#Final MCC
+
+MCC_Final= (MCC1+MCC2+MCC3+MCC4+MCC5)/5
+MCC_Final
